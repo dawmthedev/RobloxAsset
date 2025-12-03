@@ -1,0 +1,23 @@
+# Root gitignore for RobloxGen monorepo
+
+# Python backend
+backend/.env
+backend/.ENV
+backend/.venv/
+backend/__pycache__/
+backend/*.pyc
+backend/*.pyo
+backend/*.db
+backend/storage/
+
+# Node frontend
+frontend/node_modules/
+frontend/.next/
+frontend/.turbo/
+frontend/.env.local
+
+# OS / editor
+.DS_Store
+*.log
+.idea/
+.vscode/
