@@ -9,7 +9,8 @@ from datetime import datetime
 
 from database import get_db, GalleryItem, AssetType, AssetStatus
 from models.gallery_item import Refine2DRequest, Image2DResponse, ErrorResponse
-from services.openai_service import get_openai_service
+from services.huggingface_2d_service import get_huggingface_2d_service
+from services.procedural_2d_service import get_procedural_2d_service
 from services.storage_service import get_storage_service
 
 router = APIRouter(prefix="/refine", tags=["2D Refinement"])
@@ -44,7 +45,8 @@ async def refine_2d_image(
     """
     try:
         # Get services
-        openai_service = get_openai_service()
+        hf_service = get_huggingface_2d_service()
+        procedural_service = get_procedural_2d_service()
         storage_service = get_storage_service()
         
         # Find the original image
@@ -59,12 +61,22 @@ async def refine_2d_image(
                 detail=f"Original image with ID {request.image_id} not found",
             )
         
-        # Generate refined image
-        local_path, openai_url, filename = await openai_service.refine_2d_image(
-            original_prompt=original_item.prompt,
-            refinement_text=request.refinement_text,
-            original_image_path=original_item.image_path,
-        )
+        # Decide which generator to use
+        if hf_service.is_available():
+            # Use Hugging Face: combine original prompt + refinement notes
+            combined_prompt = original_item.prompt
+            refinement_notes = request.refinement_text or None
+            local_path, image_url_from_service, filename = await hf_service.generate_2d_image(
+                prompt=combined_prompt,
+                refinement_notes=refinement_notes,
+            )
+        else:
+            # Fallback: procedural refinement using combined prompt
+            combined_prompt = f"{original_item.prompt}. {request.refinement_text}"
+            local_path, image_url_from_service, filename = await procedural_service.generate_2d_image(
+                prompt=combined_prompt,
+                refinement_notes=None,
+            )
         
         # Create new gallery item for the refined image
         refined_item = GalleryItem(
@@ -73,7 +85,6 @@ async def refine_2d_image(
             asset_type=AssetType.IMAGE_2D,
             status=AssetStatus.COMPLETED,
             image_path=filename,
-            openai_image_url=openai_url,
             parent_id=original_item.id,  # Track lineage
         )
         
