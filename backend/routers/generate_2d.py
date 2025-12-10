@@ -1,6 +1,6 @@
 """
 Router for 2D image generation endpoints.
-Handles creation of 2D concept images using OpenAI DALL-E.
+Handles creation of 2D concept images using procedural CPU-only rendering.
 """
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -9,8 +9,10 @@ from datetime import datetime
 
 from database import get_db, GalleryItem, AssetType, AssetStatus
 from models.gallery_item import Generate2DRequest, Image2DResponse, ErrorResponse
-from services.openai_service import get_openai_service
+from services.procedural_2d_service import get_procedural_2d_service
+from services.huggingface_2d_service import get_huggingface_2d_service
 from services.storage_service import get_storage_service
+import os
 
 router = APIRouter(prefix="/generate", tags=["2D Generation"])
 
@@ -22,21 +24,22 @@ router = APIRouter(prefix="/generate", tags=["2D Generation"])
         500: {"model": ErrorResponse, "description": "Generation failed"},
     },
     summary="Generate 2D Concept Image",
-    description="Generate a clean 2D concept image using OpenAI DALL-E. "
-                "The image will be a product render on a plain background.",
+    description="Generate a clean 2D concept image using procedural CPU-only rendering. "
+                "The image will be a centered object with shape/color based on prompt heuristics.",
 )
 async def generate_2d_image(
     request: Generate2DRequest,
     db: Session = Depends(get_db),
 ):
     """
-    Generate a 2D concept image from a text prompt.
+    Generate a 2D concept image from a text prompt using procedural methods.
     
     The generated image will be:
-    - A clean product render
-    - On a plain white/light gray background
-    - Centered in the frame
-    - High quality studio lighting
+    - A centered object silhouette
+    - On transparent background
+    - Shape determined by prompt keywords (sword, crate, orb, etc.)
+    - Color extracted from prompt words
+    - CPU-only rendering, no GPU required
     
     Args:
         request: Generation request with prompt and optional refinement notes
@@ -46,15 +49,22 @@ async def generate_2d_image(
         Generated image metadata including URL and file path
     """
     try:
-        # Get services
-        openai_service = get_openai_service()
-        storage_service = get_storage_service()
+        # Check if Hugging Face API is available, otherwise fall back to procedural
+        hf_service = get_huggingface_2d_service()
         
-        # Generate the image
-        local_path, openai_url, filename = await openai_service.generate_2d_image(
-            prompt=request.prompt,
-            refinement_notes=request.refinement_notes,
-        )
+        if hf_service.is_available():
+            # Use Hugging Face for actual AI-generated images
+            local_path, image_url, filename = await hf_service.generate_2d_image(
+                prompt=request.prompt,
+                refinement_notes=request.refinement_notes,
+            )
+        else:
+            # Fall back to procedural generation (shapes only)
+            procedural_service = get_procedural_2d_service()
+            local_path, image_url, filename = await procedural_service.generate_2d_image(
+                prompt=request.prompt,
+                refinement_notes=request.refinement_notes,
+            )
         
         # Create gallery item for tracking
         gallery_item = GalleryItem(
@@ -63,15 +73,11 @@ async def generate_2d_image(
             asset_type=AssetType.IMAGE_2D,
             status=AssetStatus.COMPLETED,
             image_path=filename,
-            openai_image_url=openai_url,
         )
         
         db.add(gallery_item)
         db.commit()
         db.refresh(gallery_item)
-        
-        # Generate accessible URL
-        image_url = storage_service.get_image_url(filename)
         
         return Image2DResponse(
             id=gallery_item.id,

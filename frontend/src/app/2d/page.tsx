@@ -64,7 +64,7 @@ export default function TwoDPage() {
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">Tier 1 — 2D Concept Generation</h1>
             <p className="text-sm text-slate-300">
-              Enter a prompt to generate a clean product render (plain background, centered object).
+              Enter a prompt to generate a centered 2D object using CPU-only rendering (no GPU required).
             </p>
           </div>
           <nav className="flex gap-2 text-xs">
@@ -88,7 +88,7 @@ export default function TwoDPage() {
             <label className="block text-xs font-medium text-slate-300 mb-1">Prompt</label>
             <textarea
               className="w-full rounded-lg border border-slate-700 bg-slate-950/60 px-3 py-2 text-sm outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500 resize-none h-28"
-              placeholder="A sleek futuristic sword with glowing blue edges"
+              placeholder="A golden legendary sword with glowing edges, red potion bottle, wooden crate"
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
             />
@@ -104,16 +104,16 @@ export default function TwoDPage() {
               disabled={loading || !prompt.trim()}
               className="mt-3 inline-flex h-10 items-center justify-center rounded-full bg-sky-500 px-6 text-sm font-medium text-slate-950 disabled:cursor-not-allowed disabled:opacity-60 hover:bg-sky-400 transition-colors"
             >
-              {loading ? "Generating..." : "Generate 2D Concept"}
+              {loading ? "Generating..." : "Generate 2D Reference"}
             </button>
             {error && <p className="text-xs text-red-400 mt-2">{error}</p>}
           </div>
 
           <div className="space-y-3">
-            <h2 className="text-sm font-medium text-slate-200">Generated concepts</h2>
+            <h2 className="text-sm font-medium text-slate-200">Generated reference images</h2>
             {results.length === 0 && (
               <p className="text-xs text-slate-400 border border-dashed border-slate-800 rounded-xl p-4">
-                No images yet. Generate a concept and it will appear here.
+                No images yet. Generate a reference image and it will appear here.
               </p>
             )}
             <div className="grid gap-4 sm:grid-cols-2">
@@ -138,22 +138,27 @@ function TwoDCard({
   onContinue: (id: number) => void;
 }) {
   const [refineText, setRefineText] = useState("");
+  
+  // Build full image URL from backend
+  const fullImageUrl = item.image_url 
+    ? (item.image_url.startsWith('http') ? item.image_url : `${API_BASE}${item.image_url}`)
+    : null;
 
   return (
     <div className="rounded-2xl border border-slate-800 bg-slate-900/60 overflow-hidden flex flex-col">
-      {item.image_url && (
-        <div className="relative aspect-square bg-slate-950">
-          <img src={item.image_url} alt={item.name} className="h-full w-full object-contain" />
+      {fullImageUrl && (
+        <div className="relative aspect-square bg-slate-800">
+          <img src={fullImageUrl} alt={item.name} className="h-full w-full object-contain" />
         </div>
       )}
       <div className="p-3 space-y-2 text-xs">
         <p className="font-medium text-slate-100 truncate" title={item.prompt}>
-          {item.name ?? `Concept #${item.id}`}
+          {item.name ?? `Reference #${item.id}`}
         </p>
         <p className="line-clamp-2 text-slate-400">{item.prompt}</p>
         <textarea
           className="mt-2 w-full rounded-lg border border-slate-700 bg-slate-950/60 px-2 py-1 text-[11px] outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500 resize-none h-14"
-          placeholder="Refine this concept..."
+          placeholder="Add metallic, glowing, larger, etc..."
           value={refineText}
           onChange={(e) => setRefineText(e.target.value)}
         />

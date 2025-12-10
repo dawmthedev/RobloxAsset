@@ -1,19 +1,31 @@
 """
 Shap-E Service for 3D prototype generation.
 Uses the official Shap-E pipeline for image-to-3D conversion.
+
+Torch and Shap-E are treated as *optional* dependencies so that the
+rest of the API (2D generation, gallery, Meshy, etc.) can run even
+if the local 3D pipeline is not installed. The router checks the
+``is_available`` method before attempting to generate prototypes.
 """
 
 import os
 import uuid
-import torch
-import numpy as np
 from pathlib import Path
 from datetime import datetime
 from typing import Optional, Tuple
+
+import numpy as np
 from PIL import Image
 import imageio
 
 from config import SHAP_E_MODEL_PATH, SHAP_E_DEVICE, PROTOTYPES_DIR
+
+# Torch is optional. If it is not installed we fall back to CPU-only
+# behavior and report that Shap-E is not available via is_available().
+try:  # pragma: no cover - environment dependent
+    import torch  # type: ignore
+except ImportError:  # pragma: no cover - handled gracefully at runtime
+    torch = None
 
 
 class ShapEService:
@@ -24,7 +36,16 @@ class ShapEService:
 
     def __init__(self):
         """Initialize Shap-E models and device configuration."""
-        self.device = torch.device(SHAP_E_DEVICE if torch.cuda.is_available() else "cpu")
+        if torch is not None:
+            # Respect configured device but fall back to CPU if CUDA is unavailable.
+            if SHAP_E_DEVICE.lower() == "cuda" and not torch.cuda.is_available():
+                self.device = torch.device("cpu")
+            else:
+                self.device = torch.device(SHAP_E_DEVICE)
+        else:
+            # Torch not installed – service will report unavailable but
+            # the rest of the API can still import this module.
+            self.device = "cpu"
         self.xm = None
         self.model = None
         self.diffusion = None
@@ -275,8 +296,12 @@ class ShapEService:
         Returns:
             True if Shap-E is available, False otherwise
         """
+        # Torch must be present first
+        if torch is None:
+            return False
+
         try:
-            import shap_e
+            import shap_e  # type: ignore
             return True
         except ImportError:
             return False
