@@ -63,15 +63,23 @@ async def refine_2d_image(
         
         # Decide which generator to use
         if hf_service.is_available():
-            # Use Hugging Face: combine original prompt + refinement notes
-            combined_prompt = original_item.prompt
-            refinement_notes = request.refinement_text or None
-            local_path, image_url_from_service, filename = await hf_service.generate_2d_image(
-                prompt=combined_prompt,
-                refinement_notes=refinement_notes,
-            )
+            try:
+                # Use Hugging Face: combine original prompt + refinement notes
+                combined_prompt = original_item.prompt
+                refinement_notes = request.refinement_text or None
+                local_path, image_url_from_service, filename = await hf_service.generate_2d_image(
+                    prompt=combined_prompt,
+                    refinement_notes=refinement_notes,
+                )
+            except Exception:
+                # If HF fails (e.g. 503), fall back to procedural refinement
+                combined_prompt = f"{original_item.prompt}. {request.refinement_text}"
+                local_path, image_url_from_service, filename = await procedural_service.generate_2d_image(
+                    prompt=combined_prompt,
+                    refinement_notes=None,
+                )
         else:
-            # Fallback: procedural refinement using combined prompt
+            # No HF key configured: always use procedural
             combined_prompt = f"{original_item.prompt}. {request.refinement_text}"
             local_path, image_url_from_service, filename = await procedural_service.generate_2d_image(
                 prompt=combined_prompt,
@@ -112,10 +120,11 @@ async def refine_2d_image(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e),
         )
-    except Exception as e:
+    except Exception:
+        # Avoid bubbling up huge HTML responses; return a short, clean error
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to refine image: {str(e)}",
+            detail="Failed to refine image. Please try again in a moment.",
         )
 
 

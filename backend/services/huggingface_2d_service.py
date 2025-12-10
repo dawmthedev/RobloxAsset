@@ -12,10 +12,13 @@ from datetime import datetime
 from typing import Tuple, Optional
 from pathlib import Path
 
+# Import config FIRST to trigger load_dotenv() before we read env vars
+import config
 from config import IMAGES_DIR
 
 # Hugging Face API configuration - using new router endpoint
-HF_API_URL = "https://router.huggingface.co/hf-inference/models/stabilityai/stable-diffusion-xl-base-1.0"
+# Use FLUX.1-schnell which is a popular, reliable free model
+HF_API_URL = "https://router.huggingface.co/hf-inference/models/black-forest-labs/FLUX.1-schnell"
 HF_API_KEY = os.getenv("HUGGINGFACE_API_KEY", "")
 
 

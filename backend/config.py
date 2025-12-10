@@ -7,8 +7,9 @@ import os
 from pathlib import Path
 from dotenv import load_dotenv
 
-# Load environment variables from .env file
-load_dotenv()
+# Load environment variables from .env or .ENV file
+load_dotenv()  # tries .env by default
+load_dotenv(".ENV")  # also try .ENV (your file)
 
 # API Keys
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")

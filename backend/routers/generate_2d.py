@@ -49,18 +49,25 @@ async def generate_2d_image(
         Generated image metadata including URL and file path
     """
     try:
-        # Check if Hugging Face API is available, otherwise fall back to procedural
+        # Prefer Hugging Face when available, but fall back gracefully on any error
         hf_service = get_huggingface_2d_service()
-        
+        procedural_service = get_procedural_2d_service()
+
         if hf_service.is_available():
-            # Use Hugging Face for actual AI-generated images
-            local_path, image_url, filename = await hf_service.generate_2d_image(
-                prompt=request.prompt,
-                refinement_notes=request.refinement_notes,
-            )
+            try:
+                # Primary path: Hugging Face AI image generation
+                local_path, image_url, filename = await hf_service.generate_2d_image(
+                    prompt=request.prompt,
+                    refinement_notes=request.refinement_notes,
+                )
+            except Exception:
+                # If HF is down / 503 / rate limited, fall back to procedural
+                local_path, image_url, filename = await procedural_service.generate_2d_image(
+                    prompt=request.prompt,
+                    refinement_notes=request.refinement_notes,
+                )
         else:
-            # Fall back to procedural generation (shapes only)
-            procedural_service = get_procedural_2d_service()
+            # No HF key configured: always use procedural
             local_path, image_url, filename = await procedural_service.generate_2d_image(
                 prompt=request.prompt,
                 refinement_notes=request.refinement_notes,
@@ -94,10 +101,11 @@ async def generate_2d_image(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e),
         )
-    except Exception as e:
+    except Exception:
+        # Avoid bubbling up huge HTML responses; return a short, clean error
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to generate image: {str(e)}",
+            detail="Failed to generate image. Please try again in a moment.",
         )
 
 
