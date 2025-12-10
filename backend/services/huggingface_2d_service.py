@@ -6,6 +6,7 @@ Generates recognizable objects (cats, cars, houses, etc.) not just shapes.
 
 import os
 import uuid
+
 import httpx
 from datetime import datetime
 from typing import Tuple, Optional
