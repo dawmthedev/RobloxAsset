@@ -10,9 +10,11 @@ from datetime import datetime
 from database import get_db, GalleryItem, AssetType, AssetStatus
 from models.gallery_item import Generate2DRequest, Image2DResponse, ErrorResponse
 from services.procedural_2d_service import get_procedural_2d_service
-from services.huggingface_2d_service import get_huggingface_2d_service
+from services.huggingface_2d_service import get_huggingfac_2d_service
 from services.storage_service import get_storage_service
 import os
+
+#backend.
 
 router = APIRouter(prefix="/generate", tags=["2D Generation"])
 
