@@ -5,6 +5,8 @@ import { useSearchParams } from "next/navigation";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
 
+// aded comments
+
 export default function FinalPage() {
   const searchParams = useSearchParams();
   const prototypeId = searchParams.get("prototypeId");
